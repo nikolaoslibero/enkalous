@@ -87,7 +87,7 @@ impl PlayerCommandInterface for CommandByAutomation {
 }
 
 trait Renderable {
-    fn render(&self, position: (f32, f32));
+    fn render(&self, position: (f32, f32), color: Option<Color>);
 }
 
 trait Updatable {
@@ -106,7 +106,7 @@ unsafe impl Send for Player {}
 struct PlayerMacroquadRenderer;
 
 impl Renderable for PlayerMacroquadRenderer {
-    fn render(&self, position: (f32, f32)) {
+    fn render(&self, position: (f32, f32), _color: Option<Color>) {
         draw_circle_lines(position.0, position.1, 8.0, 2.0, BLUE);
     }
 }
@@ -115,7 +115,7 @@ struct PlayerTerminalRenderer;
 
 #[expect(clippy::print_stdout, reason = "this is a terminal renderer")]
 impl Renderable for PlayerTerminalRenderer {
-    fn render(&self, position: (f32, f32)) {
+    fn render(&self, position: (f32, f32), _color: Option<Color>) {
         println!("Player is aiming at ({0}, {1})", position.0, position.1);
     }
 }
@@ -142,7 +142,7 @@ impl Player {
         }
     }
     fn render(&self) {
-        self.renderer.render(self.target);
+        self.renderer.render(self.target, None);
     }
 }
 
@@ -160,8 +160,8 @@ unsafe impl Send for Circle {}
 struct CircleMacroquadRenderer;
 
 impl Renderable for CircleMacroquadRenderer {
-    fn render(&self, position: (f32, f32)) {
-        draw_circle(position.0, position.1, 64.0, RED);
+    fn render(&self, position: (f32, f32), color: Option<Color>) {
+        draw_circle(position.0, position.1, 64.0, color.unwrap_or(MAGENTA));
     }
 }
 
@@ -169,7 +169,7 @@ struct CircleTerminalRenderer;
 
 #[expect(clippy::print_stdout, reason = "this is a terminal renderer")]
 impl Renderable for CircleTerminalRenderer {
-    fn render(&self, position: (f32, f32)) {
+    fn render(&self, position: (f32, f32), _color: Option<Color>) {
         println!(
             "Circle is at ({0}, {1}) with radius ({2})",
             position.0, position.1, 64.0f64
