@@ -90,6 +90,10 @@ trait Renderable {
     fn render(&self, position: (f32, f32));
 }
 
+trait Updatable {
+    fn update(&mut self);
+}
+
 struct Player {
     command_interface: Box<dyn PlayerCommandInterface + Send>,
     renderer: Box<dyn Renderable + Send>,
@@ -116,6 +120,16 @@ impl Renderable for PlayerTerminalRenderer {
     }
 }
 
+impl Updatable for Player {
+    fn update(&mut self) {
+        match self.command_interface.get_command() {
+            Some(PlayerCommand::Aim(target)) => self.target = target,
+            Some(PlayerCommand::Attack) | None => {}
+            Some(PlayerCommand::Quit) => exit(0),
+        }
+    }
+}
+
 impl Player {
     fn new(
         command_interface: Box<dyn PlayerCommandInterface + Send>,
@@ -125,13 +139,6 @@ impl Player {
             command_interface,
             renderer,
             target: (0.0, 0.0),
-        }
-    }
-    fn update(&mut self) {
-        match self.command_interface.get_command() {
-            Some(PlayerCommand::Aim(target)) => self.target = target,
-            Some(PlayerCommand::Attack) | None => {}
-            Some(PlayerCommand::Quit) => exit(0),
         }
     }
     fn render(&self) {
@@ -170,6 +177,12 @@ impl Renderable for CircleTerminalRenderer {
     }
 }
 
+impl Updatable for Circle {
+    fn update(&mut self) {
+        self.time_to_live -= get_frame_time();
+    }
+}
+
 impl Circle {
     fn new(renderer: Box<dyn Renderable + Send>, position: (f32, f32), radius: f32) -> Self {
         let color = GREEN;
@@ -184,8 +197,5 @@ impl Circle {
     }
     fn render(&self) {
         self.renderer.render(self.position);
-    }
-    fn update(&mut self) {
-        self.time_to_live -= get_frame_time();
     }
 }
