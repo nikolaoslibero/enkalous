@@ -22,13 +22,8 @@ async fn main() {
         Box::new(CommandByKBM::new()),
         Box::new(PlayerMacroquadRenderer),
     );
-    let mut circle = Circle::new(
-        Box::new(CircleMacroquadRenderer),
-        (100.0, 100.0),
-        64.0,
-        RED,
-        1.0,
-    );
+    let mut circle = Circle::new(Box::new(CircleMacroquadRenderer), (100.0, 100.0), 64.0);
+
     #[expect(clippy::infinite_loop, reason = "this loop is the game loop")]
     loop {
         clear_background(BLACK);
@@ -176,13 +171,9 @@ impl Renderable for CircleTerminalRenderer {
 }
 
 impl Circle {
-    fn new(
-        renderer: Box<dyn Renderable + Send>,
-        position: (f32, f32),
-        radius: f32,
-        color: Color,
-        time_to_live: f32,
-    ) -> Self {
+    fn new(renderer: Box<dyn Renderable + Send>, position: (f32, f32), radius: f32) -> Self {
+        let color = GREEN;
+        let time_to_live = 5.0;
         Self {
             renderer,
             position,
