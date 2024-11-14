@@ -31,6 +31,10 @@ async fn main() {
         circle.update();
         player.update();
 
+        if circle.is_dead() {
+            circle = Circle::new(Box::new(CircleMacroquadRenderer), (100.0, 100.0), 64.0);
+        }
+
         circle.render();
         player.render();
 
@@ -180,6 +184,10 @@ impl Renderable for CircleTerminalRenderer {
 impl Updatable for Circle {
     fn update(&mut self) {
         self.time_to_live -= get_frame_time();
+
+        if self.time_to_live <= 0.25 && self.color != RED {
+            self.color = RED;
+        }
     }
 }
 
@@ -196,6 +204,9 @@ impl Circle {
         }
     }
     fn render(&self) {
-        self.renderer.render(self.position);
+        self.renderer.render(self.position, Some(self.color));
+    }
+    fn is_dead(&self) -> bool {
+        self.time_to_live <= 0.0
     }
 }
