@@ -50,6 +50,7 @@ enum PlayerCommand {
 
 trait PlayerCommandInterface {
     fn get_command(&mut self) -> Option<PlayerCommand>;
+    fn get_position(&self) -> (f32, f32);
 }
 
 struct CommandByKBM;
@@ -70,23 +71,34 @@ impl PlayerCommandInterface for CommandByKBM {
             return Some(PlayerCommand::Attack);
         }
 
-        Some(PlayerCommand::Aim(mouse_position()))
+        None
+    }
+    fn get_position(&self) -> (f32, f32) {
+        mouse_position()
     }
 }
 
 struct CommandByAutomation {
     command_list: Vec<PlayerCommand>,
+    position: (f32, f32),
 }
 
 impl CommandByAutomation {
     const fn new(list: Vec<PlayerCommand>) -> Self {
-        Self { command_list: list }
+        let position = (0.0, 0.0);
+        Self {
+            command_list: list,
+            position,
+        }
     }
 }
 
 impl PlayerCommandInterface for CommandByAutomation {
     fn get_command(&mut self) -> Option<PlayerCommand> {
         self.command_list.pop()
+    }
+    fn get_position(&self) -> (f32, f32) {
+        self.position
     }
 }
 
@@ -126,10 +138,14 @@ impl Renderable for PlayerTerminalRenderer {
 
 impl Updatable for Player {
     fn update(&mut self) {
+        self.target = self.command_interface.get_position();
+        #[expect(
+            clippy::single_match,
+            reason = "this won't be single once attack is implemented"
+        )]
         match self.command_interface.get_command() {
-            Some(PlayerCommand::Aim(target)) => self.target = target,
-            Some(PlayerCommand::Attack) | None => {}
             Some(PlayerCommand::Quit) => exit(0),
+            _ => {}
         }
     }
 }
