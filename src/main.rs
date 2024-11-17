@@ -25,7 +25,7 @@ async fn main() {
         clear_background(BLACK);
 
         if let Some(state) = game.update() {
-            game.transition(state);
+            game.change_state(state);
         }
 
         next_frame().await;
@@ -33,10 +33,7 @@ async fn main() {
 }
 
 enum GameState {
-    CircleHit,
-    CircleMiss,
-    NewCircle,
-    PlayerAttempt,
+    Play,
     Start,
     End,
 }
@@ -56,73 +53,151 @@ impl Game {
     fn update(&mut self) -> Option<GameState> {
         match self.state {
             GameState::Start => Some(Self::start()),
-            GameState::NewCircle => Some(self.create_new_circle()),
-            GameState::PlayerAttempt => self.player_attempt(),
-            GameState::CircleHit => Some(self.circle_hit()),
-            GameState::CircleMiss => Some(self.circle_miss()),
+            GameState::Play => self.play(),
             GameState::End => {
                 Self::end();
                 None
             }
         }
     }
-    fn transition(&mut self, new_state: GameState) {
+    fn change_state(&mut self, new_state: GameState) {
         match (&self.state, new_state) {
-            (
-                &GameState::Start | &GameState::CircleHit | &GameState::CircleMiss,
-                GameState::NewCircle,
-            ) => {
-                self.state = GameState::NewCircle;
+            (&GameState::Start, GameState::Play) => {
+                self.state = GameState::Play;
             }
-            (&GameState::NewCircle, GameState::PlayerAttempt) => {
-                self.state = GameState::PlayerAttempt;
-            }
-            (&GameState::PlayerAttempt, GameState::CircleHit) => {
-                self.state = GameState::CircleHit;
-            }
-            (&GameState::PlayerAttempt, GameState::CircleMiss) => {
-                self.state = GameState::CircleMiss;
+            (&GameState::Play, GameState::End) => {
+                self.state = GameState::End;
             }
             _ => {}
         }
     }
     const fn start() -> GameState {
-        GameState::NewCircle
+        GameState::Play
     }
     fn end() {
         exit(0);
     }
-    fn create_new_circle(&mut self) -> GameState {
-        self.circle = Circle::new();
-        GameState::PlayerAttempt
-    }
-    fn player_attempt(&self) -> Option<GameState> {
-        todo!()
-    }
-    fn circle_hit(&mut self) -> GameState {
-        self.circle.state = CircleState::Hit;
-        GameState::NewCircle
-    }
-    fn circle_miss(&mut self) -> GameState {
-        self.circle.state = CircleState::Miss;
-        GameState::NewCircle
+    fn play(&mut self) -> Option<GameState> {
+        let mouse_position = Vec2::from(mouse_position());
+        if is_key_pressed(KeyCode::Escape) {
+            return Some(GameState::End);
+        }
+        if is_mouse_button_pressed(MouseButton::Left) {
+            if mouse_position.distance(self.circle.position) < 50.0 {
+                self.circle.change_state(CircleState::Hit);
+            } else {
+                self.circle.change_state(CircleState::Missed);
+            }
+        }
+        if let Some(state) = self.circle.update() {
+            self.circle.change_state(state);
+        }
+        if matches!(self.circle.state, CircleState::Dispose) {
+            self.circle = Circle::new();
+        }
+        self.circle.draw();
+
+        None
     }
 }
 
 enum CircleState {
     Hit,
-    Miss,
-    New,
+    Missed,
+    Idle,
+    Dead,
+    Dispose,
 }
 
 struct Circle {
     state: CircleState,
+    state_timer: f32,
+    position: Vec2,
+    color: Color,
 }
 
 impl Circle {
     const fn new() -> Self {
         Self {
-            state: CircleState::New,
+            state: CircleState::Idle,
+            state_timer: 0.0,
+            position: vec2(50.0, 50.0),
+            color: BLUE,
+        }
+    }
+    fn draw(&self) {
+        draw_circle(self.position.x, self.position.y, 50.0, self.color);
+    }
+    fn update(&mut self) -> Option<CircleState> {
+        match self.state {
+            CircleState::Hit => self.hit(),
+            CircleState::Missed => self.miss(),
+            CircleState::Dead => self.dead(),
+            CircleState::Dispose => None,
+            CircleState::Idle => self.idle(),
+        }
+    }
+    fn change_state(&mut self, new_state: CircleState) {
+        self.state_timer = 0.0;
+        match (&self.state, new_state) {
+            (&CircleState::Idle, CircleState::Hit) => {
+                self.state = CircleState::Hit;
+            }
+            (&CircleState::Idle, CircleState::Missed) => {
+                self.state = CircleState::Missed;
+            }
+            (&CircleState::Hit | &CircleState::Missed | &CircleState::Idle, CircleState::Dead) => {
+                self.state = CircleState::Dead;
+            }
+            (&CircleState::Dead, CircleState::Dispose) => {
+                self.state = CircleState::Dispose;
+            }
+            _ => {}
+        }
+    }
+    fn hit(&mut self) -> Option<CircleState> {
+        let timer_limit = 0.25;
+        if self.state_timer == 0.0 {
+            self.color = GREEN;
+        }
+        if self.state_timer >= timer_limit {
+            Some(CircleState::Dead)
+        } else {
+            self.state_timer += get_frame_time();
+            None
+        }
+    }
+    fn miss(&mut self) -> Option<CircleState> {
+        let timer_limit = 0.25;
+        if self.state_timer == 0.0 {
+            self.color = RED;
+        }
+        if self.state_timer >= timer_limit {
+            Some(CircleState::Dead)
+        } else {
+            self.state_timer += get_frame_time();
+            None
+        }
+    }
+    fn dead(&mut self) -> Option<CircleState> {
+        let timer_limit = 0.25;
+        if self.state_timer == 0.0 {
+            self.color = DARKGRAY;
+        }
+        if self.state_timer >= timer_limit {
+            Some(CircleState::Dispose)
+        } else {
+            self.state_timer += get_frame_time();
+            None
+        }
+    }
+    fn idle(&mut self) -> Option<CircleState> {
+        let timer_limit = 2.0;
+        if self.state_timer >= timer_limit {
+            Some(CircleState::Dead)
+        } else {
+            self.state_timer += get_frame_time();
+            None
         }
     }
 }
