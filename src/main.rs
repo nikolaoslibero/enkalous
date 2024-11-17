@@ -34,6 +34,7 @@ async fn main() {
 
 enum GameState {
     Play,
+    Paused,
     Start,
     End,
 }
@@ -58,15 +59,19 @@ impl Game {
                 Self::end();
                 None
             }
+            GameState::Paused => Self::paused(),
         }
     }
     fn change_state(&mut self, new_state: GameState) {
         match (&self.state, new_state) {
-            (&GameState::Start, GameState::Play) => {
-                self.state = GameState::Play;
-            }
-            (&GameState::Play, GameState::End) => {
+            (&GameState::Play | &GameState::Paused, GameState::End) => {
                 self.state = GameState::End;
+            }
+            (&GameState::Play, GameState::Paused) => {
+                self.state = GameState::Paused;
+            }
+            (&GameState::Paused | &GameState::Start, GameState::Play) => {
+                self.state = GameState::Play;
             }
             _ => {}
         }
@@ -78,10 +83,27 @@ impl Game {
         exit(0);
     }
     fn play(&mut self) -> Option<GameState> {
-        let mouse_position = Vec2::from(mouse_position());
         if is_key_pressed(KeyCode::Escape) {
             return Some(GameState::End);
         }
+        if is_key_pressed(KeyCode::Space) {
+            return Some(GameState::Paused);
+        }
+
+        self.check_for_hit_on_click();
+        self.update_circle_state();
+        self.reset_disposed_circle();
+        self.circle.draw();
+
+        None
+    }
+    fn update_circle_state(&mut self) {
+        if let Some(state) = self.circle.update() {
+            self.circle.change_state(state);
+        }
+    }
+    fn check_for_hit_on_click(&mut self) {
+        let mouse_position = Vec2::from(mouse_position());
         if is_mouse_button_pressed(MouseButton::Left) {
             if mouse_position.distance(self.circle.position) < 50.0 {
                 self.circle.change_state(CircleState::Hit);
@@ -89,15 +111,18 @@ impl Game {
                 self.circle.change_state(CircleState::Missed);
             }
         }
-        if let Some(state) = self.circle.update() {
-            self.circle.change_state(state);
-        }
+    }
+    fn reset_disposed_circle(&mut self) {
         if matches!(self.circle.state, CircleState::Dispose) {
             self.circle = Circle::new();
         }
-        self.circle.draw();
-
-        None
+    }
+    fn paused() -> Option<GameState> {
+        draw_text("paused", 0.0, screen_height(), 32.0, WHITE);
+        if is_key_pressed(KeyCode::Escape) {
+            return Some(GameState::End);
+        }
+        is_key_pressed(KeyCode::Space).then_some(GameState::Play)
     }
 }
 
